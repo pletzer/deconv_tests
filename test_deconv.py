@@ -1,5 +1,4 @@
 import numpy
-from matplotlib import pyplot
 import defopt
 import pyfftw
 import pandas
