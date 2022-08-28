@@ -1,10 +1,10 @@
 import numpy
 from matplotlib import pyplot
 import defopt
-import functools
-import operator
 import pyfftw
-from scipy.fftpack import ifftshift
+import pandas
+import time
+
 
 def plot_data(field, title):
     fig, ax = pyplot.subplots()
@@ -23,6 +23,8 @@ class FFTAbstract(object):
 
 class FFT_numpy(FFTAbstract):
 
+    MODEL_NAME = 'numpy'
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -33,6 +35,8 @@ class FFT_numpy(FFTAbstract):
         return numpy.fft.ifftn(arr)
 
 class FFT_fftw(FFTAbstract):
+
+    MODEL_NAME = 'fftw'
 
     def __init__(self, arr, *args, **kwargs):
         self._a = pyfftw.empty_aligned(arr.shape, dtype='complex64')
@@ -46,9 +50,7 @@ class FFT_fftw(FFTAbstract):
         return pyfftw.interfaces.numpy_fft.ifftn(self._a)
 
 
-def main(*, nsizes: str='(32, 32)', plot: bool=False):
-
-    nsizes = eval(nsizes)
+def compute(Model, nsizes):
 
     field = numpy.zeros(nsizes, numpy.float32)
 
@@ -61,9 +63,8 @@ def main(*, nsizes: str='(32, 32)', plot: bool=False):
     field[inds] = 1.0
 
     # blurr it
-    fft_obj = FFT_fftw(field) #FFT_numpy()
+    fft_obj = Model(field)
     fft_field = fft_obj.forward(field)
-    print(f'...fft_field = {fft_field}')
 
     one_over_r = 1.0/numpy.sqrt((xx[0]**2 + xx[1]**2) + 0.1**2)
     kernel = fft_obj.forward(one_over_r)
@@ -71,19 +72,30 @@ def main(*, nsizes: str='(32, 32)', plot: bool=False):
     fft_field_blurred = fft_field * kernel
 
     # back to real space
-    field_blurred = numpy.real(fft_obj.backward(fft_field_blurred)) # or should it be absolute?
-
     decon_field = numpy.real( fft_obj.backward(fft_field_blurred / kernel) )
-    # plot
-    if plot:
-        plot_data(field, title='original')
-        plot_data(field_blurred, title='blurred')
-        plot_data(decon_field, 'after deconvolution')
 
-    # save the arrays
-    sizes = functools.reduce(operator.__add__, [f'{n}x' for n in nsizes])
-    numpy.save(f'original_{sizes}.npy', field)
-    numpy.save(f'blurred_{sizes}.npy', field_blurred)
+    return decon_field
+
+
+def main(*, nsizes: str='(32, 32)'):
+
+    nsizes = eval(nsizes)
+
+    data = {'model': [],
+            'checksum': [],
+            'time_s': []}
+    for Model in FFT_numpy, FFT_fftw:
+        tic = time.time()
+        decon_field = compute(Model, nsizes=nsizes)
+        t = time.time() - tic
+        data['model'].append(Model.MODEL_NAME)
+        chcksum = numpy.sum(numpy.fabs(decon_field))
+        data['checksum'].append(chcksum)
+        data['time_s'].append(t)
+
+    df = pandas.DataFrame(data)
+    print(df)
+
 
 if __name__ == '__main__':
     defopt.run(main)
