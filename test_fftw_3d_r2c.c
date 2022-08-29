@@ -1,8 +1,7 @@
 /* Example showing the use of FFTW. 
 
-ml shared NVHPC cuda11.0/fft
-nvcc test_cufftw_3d.c -o test_cufftw_3d -L $EBROOTCUDA/lib -lcufftw -lcufft -lculibos
-srun --gpus-per-node=A100:1 ./test_cufftw
+ml FFTW
+g++ -O4 test_fftw_3d_r2c.c -o test_fftw_3d_r2c -L $EBROOTFFTW/lib -lfftw3
 
 */
 
@@ -11,13 +10,10 @@ srun --gpus-per-node=A100:1 ./test_cufftw
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-// includes, project
-#include <cuda_runtime_api.h>
-#include <cuda.h>
-#include <cufftw.h>
 #include <time.h>
 
+// includes, project
+#include <fftw3.h>
 
 typedef fftw_complex Complex;
 
@@ -38,68 +34,57 @@ int main(int argc, char** argv)
 //! Run a simple test for CUDA
 ////////////////////////////////////////////////////////////////////////////////
 void runTest(int argc, char** argv)
-{    
+{
+
     int SIGNAL_SIZE = 128;
     if (argc >= 2) {
-        SIGNAL_SIZE = atoi(argv[1]);
+       SIGNAL_SIZE = atoi(argv[1]);
     }
     
-    printf("cuFFTW 3d size %d...\n", SIGNAL_SIZE);
-
+    printf("FFTW 3d r2c size %d...\n", SIGNAL_SIZE);
+    
     int ntot = SIGNAL_SIZE * SIGNAL_SIZE * SIGNAL_SIZE;
-    int mem_size = ntot * sizeof(Complex);
+    int ntot2 = SIGNAL_SIZE * SIGNAL_SIZE * (SIGNAL_SIZE/2 + 1);
+    int mem_size = ntot * sizeof(double);
+    int mem_size2 = ntot2 * sizeof(Complex);
 
     // Allocate host memory for the signal
-    Complex* h_signal = (Complex*) fftw_malloc(mem_size);
-    Complex* h_signal2 = (Complex*) fftw_malloc(mem_size);
-
-    // Initalize the memory for the signal
-    for (unsigned int i = 0; i < ntot; ++i) {
-        h_signal[i][0] = 0;
-        h_signal[i][1] = 0;
-    }
-    h_signal[0][0] = 1;    
-
-    // Data on the device
-    Complex* d_signal;
-    cudaMalloc((void**)&d_signal, mem_size);
+    double* h_signal = (double*) fftw_malloc(mem_size);
+    Complex* d_signal = (Complex*) fftw_malloc(mem_size2);
+    double* h_signal2 = (double*) fftw_malloc(mem_size);    
 
     // FFTW plan
-    fftw_plan p = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, d_signal, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan p2 = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, d_signal, FFTW_BACKWARD, FFTW_ESTIMATE);
+    fftw_plan p = fftw_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_ESTIMATE);
+    fftw_plan p2 = fftw_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, h_signal2, FFTW_ESTIMATE);
+    
+    // Initalize the memory for the signal
+    for (unsigned int i = 0; i < ntot; ++i) {
+        h_signal[i] = 0;
+    }
+    h_signal[0] = 1;
 
     clock_t time_beg = clock();
-
-    // Copy host memory to device
-    cudaMemcpy(d_signal, h_signal, mem_size,
-               cudaMemcpyHostToDevice);
     
     fftw_execute(p);
     fftw_execute(p2);
     
-    // Copy device memory to host
-    cudaMemcpy(h_signal2, d_signal, mem_size,
-               cudaMemcpyDeviceToHost);
-    
     clock_t time_end = clock();
     printf("fwd -> bwd transform time: %lf secs\n", ((double)(time_end - time_beg))/CLOCKS_PER_SEC); 
-    
+        
     // Check
     float error = 0;
     for (unsigned int i = 0; i < ntot; ++i) {
-        error += h_signal[i][0] - h_signal2[i][0]/ntot; // note: normalization
-        error += h_signal[i][1] - h_signal2[i][1]/ntot;
+        error += h_signal[i] - h_signal2[i]/ntot; // note: normalization
     }
     printf("error: %g\n", error);
 
-    //Destroy plans
+    //Destroy CUFFT context
     fftw_destroy_plan(p2);
     fftw_destroy_plan(p);
 
     // cleanup memory
-    cudaFree(d_signal);
     fftw_free(h_signal);
+    fftw_free(d_signal);
     fftw_free(h_signal2);
-
 }
 

@@ -49,7 +49,11 @@ void runTest(int argc, char** argv)
     // Allocate host memory for the signal
     Complex* h_signal = (Complex*) fftw_malloc(mem_size);
     Complex* d_signal = (Complex*) fftw_malloc(mem_size);
-    Complex* h_signal2 = (Complex*) fftw_malloc(mem_size);
+    Complex* h_signal2 = (Complex*) fftw_malloc(mem_size);       
+
+    // FFTW plan
+    fftw_plan p = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_plan p2 = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, h_signal2, FFTW_BACKWARD, FFTW_ESTIMATE);
 
     // Initalize the memory for the signal
     for (unsigned int i = 0; i < ntot; ++i) {
@@ -57,14 +61,7 @@ void runTest(int argc, char** argv)
         h_signal[i][1] = 0;
     }
     h_signal[0][0] = 1;
-    
-    // Copy to the device
-    
-
-    // FFTW plan
-    fftw_plan p = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan p2 = fftw_plan_dft_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, h_signal2, FFTW_BACKWARD, FFTW_ESTIMATE);
-    
+     
     clock_t time_beg = clock();
     
     fftw_execute(p);
