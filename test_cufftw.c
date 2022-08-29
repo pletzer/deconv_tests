@@ -16,6 +16,7 @@ srun --gpus-per-node=A100:1 ./test_cufftw
 #include <cuda_runtime_api.h>
 #include <cuda.h>
 #include <cufftw.h>
+#include <time.h>
 
 
 typedef fftw_complex Complex;
@@ -24,8 +25,6 @@ typedef fftw_complex Complex;
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
 void runTest(int argc, char** argv);
-
-#define SIGNAL_SIZE        16
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
@@ -39,8 +38,14 @@ int main(int argc, char** argv)
 //! Run a simple test for CUDA
 ////////////////////////////////////////////////////////////////////////////////
 void runTest(int argc, char** argv)
-{
-    printf("[cuFFTW] is starting...\n");
+{    
+    int SIGNAL_SIZE = 128;
+    if (argc >= 2) {
+        SIGNAL_SIZE = atoi(argv[1]);
+    }
+    
+    printf("cuFFTW size %d...\n", SIGNAL_SIZE);
+
     int mem_size = SIGNAL_SIZE * sizeof(Complex);
 
     // Allocate host memory for the signal
@@ -60,13 +65,16 @@ void runTest(int argc, char** argv)
     cudaMalloc((void**)&d_signal, sizeof(Complex) * SIGNAL_SIZE);
     cudaMalloc((void**)&d_signal2, sizeof(Complex) * SIGNAL_SIZE);
 
+    // FFTW plan
+    fftw_plan p = fftw_plan_dft_1d(SIGNAL_SIZE, d_signal, d_signal2, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_plan p2 = fftw_plan_dft_1d(SIGNAL_SIZE, d_signal2, d_signal, FFTW_BACKWARD, FFTW_ESTIMATE);
+
+    clock_t time_beg = clock();
+
     // Copy host memory to device
     cudaMemcpy(d_signal, h_signal, sizeof(Complex) * SIGNAL_SIZE,
                cudaMemcpyHostToDevice);
     
-    // FFTW plan
-    fftw_plan p = fftw_plan_dft_1d(SIGNAL_SIZE, d_signal, d_signal2, FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan p2 = fftw_plan_dft_1d(SIGNAL_SIZE, d_signal2, d_signal, FFTW_BACKWARD, FFTW_ESTIMATE);
     
     fftw_execute(p);
     fftw_execute(p2);
@@ -75,6 +83,8 @@ void runTest(int argc, char** argv)
     cudaMemcpy(h_signal2, d_signal, sizeof(Complex) * SIGNAL_SIZE,
                cudaMemcpyDeviceToHost);
     
+    clock_t time_end = clock();
+    printf("fwd -> bwd transform time: %lf secs\n", ((double)(time_end - time_beg))/CLOCKS_PER_SEC); 
     
     // Normalize 
     for (
@@ -88,7 +98,6 @@ void runTest(int argc, char** argv)
     for (unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
         error += h_signal[i][0] - h_signal2[i][0];
         error += h_signal[i][1] - h_signal2[i][1];
-        printf("i = %d original = %f + i*%f returned = %f + i*%f\n",  i, h_signal[i][0], h_signal[i][1], h_signal2[i][0], h_signal2[i][1]);
     }
     printf("error: %g\n", error);
 
