@@ -16,6 +16,7 @@ g++ -O4 test_fftw_3d_r2c.c -o test_fftw_3d_r2c -L $EBROOTFFTW/lib -lfftw3
 #include <fftw3.h>
 
 typedef fftw_complex Complex;
+typedef double Real;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,13 +46,13 @@ void runTest(int argc, char** argv)
     
     int ntot = SIGNAL_SIZE * SIGNAL_SIZE * SIGNAL_SIZE;
     int ntot2 = SIGNAL_SIZE * SIGNAL_SIZE * (SIGNAL_SIZE/2 + 1);
-    int mem_size = ntot * sizeof(double);
+    int mem_size = ntot * sizeof(Real);
     int mem_size2 = ntot2 * sizeof(Complex);
 
     // Allocate host memory for the signal
-    double* h_signal = (double*) fftw_malloc(mem_size);
+    Real* h_signal = (Real*) fftw_malloc(mem_size);
     Complex* d_signal = (Complex*) fftw_malloc(mem_size2);
-    double* h_signal2 = (double*) fftw_malloc(mem_size);    
+    Real* h_signal2 = (Real*) fftw_malloc(mem_size);    
 
     // FFTW plan
     fftw_plan p = fftw_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_ESTIMATE);
