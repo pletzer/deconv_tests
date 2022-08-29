@@ -43,15 +43,16 @@ void runTest(int argc, char** argv)
     
     printf("FFTW size %d...\n", SIGNAL_SIZE);
     
-    int mem_size = SIGNAL_SIZE * sizeof(Complex);
+    int ntot = SIGNAL_SIZE;
+    int mem_size = ntot * sizeof(Complex);
 
     // Allocate host memory for the signal
-    Complex* h_signal = (Complex*) fftw_malloc(sizeof(Complex) * SIGNAL_SIZE);
-    Complex* d_signal = (Complex*) fftw_malloc(sizeof(Complex) * SIGNAL_SIZE);
-    Complex* h_signal2 = (Complex*) fftw_malloc(sizeof(Complex) * SIGNAL_SIZE);
+    Complex* h_signal = (Complex*) fftw_malloc(mem_size);
+    Complex* d_signal = (Complex*) fftw_malloc(mem_size);
+    Complex* h_signal2 = (Complex*) fftw_malloc(mem_size);
 
     // Initalize the memory for the signal
-    for (unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
+    for (unsigned int i = 0; i < ntot; ++i) {
         h_signal[i][0] = 0;
         h_signal[i][1] = 0;
     }
@@ -71,19 +72,12 @@ void runTest(int argc, char** argv)
     
     clock_t time_end = clock();
     printf("fwd -> bwd transform time: %lf secs\n", ((double)(time_end - time_beg))/CLOCKS_PER_SEC); 
-    
-    // Normalize 
-    for (
-        unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
-        h_signal2[i][0] /= SIGNAL_SIZE;
-        h_signal2[i][1] /= SIGNAL_SIZE;
-    }
-    
+        
     // Check
     float error = 0;
-    for (unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
-        error += h_signal[i][0] - h_signal2[i][0];
-        error += h_signal[i][1] - h_signal2[i][1];
+    for (unsigned int i = 0; i < ntot; ++i) {
+        error += h_signal[i][0] - h_signal2[i][0]/ntot; // note: normalization
+        error += h_signal[i][1] - h_signal2[i][1]/ntot;
     }
     printf("error: %g\n", error);
 
