@@ -23,7 +23,6 @@ typedef float2 Complex;
 // declaration, forward
 void runTest(int argc, char** argv);
 
-// The filter size is assumed to be a number smaller than the signal size
 #define SIGNAL_SIZE        16
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,6 +43,7 @@ void runTest(int argc, char** argv)
 
     // Allocate host memory for the signal
     Complex* h_signal = (Complex*)malloc(sizeof(Complex) * SIGNAL_SIZE);
+    Complex* h_signal2 = (Complex*)malloc(sizeof(Complex) * SIGNAL_SIZE);
     // Initalize the memory for the signal
     for (unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
         h_signal[i].x = 0;
@@ -72,8 +72,17 @@ void runTest(int argc, char** argv)
     cufftExecC2C(plan, (cufftComplex *)d_signal, (cufftComplex *)d_signal, CUFFT_INVERSE);
 
     // Copy device memory to host
-    cudaMemcpy(h_signal, d_signal, mem_size,
+    cudaMemcpy(h_signal2, d_signal, mem_size,
                cudaMemcpyDeviceToHost);
+    
+    // Check
+    float error = 0;
+    for (unsigned int i = 0; i < SIGNAL_SIZE; ++i) {
+        error += h_signal[i].x - h_signal2[i].x;
+        error += h_signal[i].y - h_signal2[i].y;
+        printf("i = %d original = %f + i*%f returned = %f + i*%f\n",  h_signal[i].x, h_signal[i].y, h_signal2[i].x, h_signal2[i].y);
+    }
+    printf("error: %g\n", error);
 
     //Destroy CUFFT context
     cufftDestroy(plan);
