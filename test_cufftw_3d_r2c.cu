@@ -1,7 +1,7 @@
 /* Example showing the use of FFTW. 
 
 ml shared NVHPC cuda11.0/fft
-nvcc -O4 test_cufftw_3d_r2c.c -o test_cufftw_3d_r2c -L $EBROOTCUDA/lib -lcufftw -lcufft -lculibos
+nvcc -O2 test_cufftw_3d_r2c.cu -o test_cufftw_3d_r2c -L $EBROOTCUDA/lib -lcufftw -lcufft -lculibos
 srun --gpus-per-node=A100:1 ./test_cufftw_3d_r2c
 
 */
