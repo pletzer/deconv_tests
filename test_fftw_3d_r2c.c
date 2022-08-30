@@ -1,7 +1,7 @@
 /* Example showing the use of FFTW. 
 
 ml FFTW
-c
+g++ -O2 test_fftw_3d_r2c.c -o test_fftw_3d_r2c -L $EBROOTFFTW/lib -lfftw3f -lfftw3
 
 */
 
@@ -38,11 +38,15 @@ void runTest(int argc, char** argv)
 {
 
     int SIGNAL_SIZE = 128;
+    int NUM_ITERS = 10;
     if (argc >= 2) {
-       SIGNAL_SIZE = atoi(argv[1]);
+        SIGNAL_SIZE = atoi(argv[1]);
+        if (argc >= 3) {
+            NUM_ITERS = atoi(argv[2]);
+        }
     }
     
-    printf("FFTW 3d r2c size %d...\n", SIGNAL_SIZE);
+    printf("FFTW 3d r2c size %d num iters %d...\n", SIGNAL_SIZE, NUM_ITERS);
     
     int ntot = SIGNAL_SIZE * SIGNAL_SIZE * SIGNAL_SIZE;
     int ntot2 = SIGNAL_SIZE * SIGNAL_SIZE * (SIGNAL_SIZE/2 + 1);
@@ -55,8 +59,8 @@ void runTest(int argc, char** argv)
     Real* h_signal2 = (Real*) fftwf_malloc(mem_size);    
 
     // FFTW plan
-    fftwf_plan p = fftwf_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_ESTIMATE);
-    fftwf_plan p2 = fftwf_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, h_signal2, FFTW_ESTIMATE);
+    fftwf_plan p = fftwf_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, h_signal, d_signal, FFTW_MEASURE);
+    fftwf_plan p2 = fftwf_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, h_signal2, FFTW_MEASURE);
     
     // Initalize the memory for the signal
     for (unsigned int i = 0; i < ntot; ++i) {
@@ -66,12 +70,13 @@ void runTest(int argc, char** argv)
 
     clock_t time_beg = clock();
     
-    fftwf_execute(p);    
-    fftwf_execute(p2);
-
-    // Normalize
-    for (unsigned int i = 0; i < ntot; ++i) {
-        h_signal2[i] /= ntot;
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        fftwf_execute(p);    
+        fftwf_execute(p2);
+        // Normalize
+        for (unsigned int i = 0; i < ntot; ++i) {
+            h_signal2[i] /= ntot;
+        }
     }
 
     clock_t time_end = clock();

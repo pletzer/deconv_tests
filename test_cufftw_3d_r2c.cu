@@ -46,11 +46,15 @@ int main(int argc, char** argv)
 void runTest(int argc, char** argv)
 {    
     int SIGNAL_SIZE = 128;
+    int NUM_ITERS = 10;
     if (argc >= 2) {
         SIGNAL_SIZE = atoi(argv[1]);
+        if (argc >= 3) {
+            NUM_ITERS = atoi(argv[2]);
+        }
     }
     
-    printf("cuFFTW 3d r2c size %d...\n", SIGNAL_SIZE);
+    printf("cuFFTW 3d r2c size %d num iters %d...\n", SIGNAL_SIZE, NUM_ITERS);
 
     int ntot = SIGNAL_SIZE * SIGNAL_SIZE * SIGNAL_SIZE;
     int ntot2 = SIGNAL_SIZE * SIGNAL_SIZE * (SIGNAL_SIZE/2 + 1);
@@ -73,24 +77,22 @@ void runTest(int argc, char** argv)
 
     Complex* c_signal;
     cudaMalloc((void**)&c_signal, mem_size2);
-    
-    int* d_ntot_ptr;
-    cudaMalloc((void**)&d_ntot_ptr, sizeof(int));
-    cudaMemcpy(d_ntot_ptr, &ntot, sizeof(int), cudaMemcpyHostToDevice);
 
     // FFTW plan
-    fftwf_plan p = fftwf_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, c_signal, FFTW_ESTIMATE);
-    fftwf_plan p2 = fftwf_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, c_signal, d_signal, FFTW_ESTIMATE);
+    fftwf_plan p = fftwf_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, c_signal, FFTW_MEASURE);
+    fftwf_plan p2 = fftwf_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, c_signal, d_signal, FFTW_MEASURE);
 
     clock_t time_beg = clock();
 
     // Copy host memory to device
     cudaMemcpy(d_signal, h_signal, mem_size,
                cudaMemcpyHostToDevice);
-    
-    fftwf_execute(p);
-    fftwf_execute(p2);
-    normalize<<<(ntot + 255)/256, 256>>>(ntot, d_signal);
+               
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        fftwf_execute(p);
+        fftwf_execute(p2);
+        normalize<<<(ntot + 255)/256, 256>>>(ntot, d_signal);
+    }
     
     // Copy device memory to host
     cudaMemcpy(h_signal2, d_signal, mem_size,
