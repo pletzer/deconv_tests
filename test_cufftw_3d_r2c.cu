@@ -1,7 +1,7 @@
 /* Example showing the use of FFTW. 
 
 ml shared NVHPC cuda11.0/fft
-pgcc -acc -cuda -O4 test_cufftw_3d_r2c.c -o test_cufftw_3d_r2c -L $EBROOTCUDA/lib -lcufftw -lcufft -lculibos
+nvcc -O4 test_cufftw_3d_r2c.c -o test_cufftw_3d_r2c -L $EBROOTCUDA/lib -lcufftw -lcufft -lculibos
 srun --gpus-per-node=A100:1 ./test_cufftw_3d_r2c
 
 */
@@ -21,6 +21,12 @@ srun --gpus-per-node=A100:1 ./test_cufftw_3d_r2c
 
 typedef fftwf_complex Complex;
 typedef float Real;
+
+// Normalization kernel
+__global__ void normalize(int n, Real* arr) {
+  int i = blockIdx.x*blockDim.x + threadIdx.x;
+  if (i < n) arr[i] /= (Real)(n); 
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
@@ -68,6 +74,10 @@ void runTest(int argc, char** argv)
     Complex* c_signal;
     cudaMalloc((void**)&c_signal, mem_size2);
     
+    int* d_ntot_ptr;
+    cudaMalloc((void**)&d_ntot_ptr, sizeof(int));
+    cudaMemcpy(d_ntot_ptr, &ntot, sizeof(int), cudaMemcpyHostToDevice);
+
     // FFTW plan
     fftwf_plan p = fftwf_plan_dft_r2c_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, d_signal, c_signal, FFTW_ESTIMATE);
     fftwf_plan p2 = fftwf_plan_dft_c2r_3d(SIGNAL_SIZE, SIGNAL_SIZE, SIGNAL_SIZE, c_signal, d_signal, FFTW_ESTIMATE);
@@ -76,18 +86,11 @@ void runTest(int argc, char** argv)
 
     // Copy host memory to device
     cudaMemcpy(d_signal, h_signal, mem_size,
-                cudaMemcpyHostToDevice);
-        
+               cudaMemcpyHostToDevice);
+    
     fftwf_execute(p);
     fftwf_execute(p2);
-    
-    #pragma acc host_data use_device(d_signal)
-    {
-        #pragma acc parallel loop copyin(ntot)
-        for (unsigned int i = 0; i < ntot; ++i) {
-            d_signal[i] /= ntot;
-        }
-    }
+    normalize<<<(ntot + 255)/256, 256>>>(ntot, d_signal);
     
     // Copy device memory to host
     cudaMemcpy(h_signal2, d_signal, mem_size,
