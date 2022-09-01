@@ -40,11 +40,18 @@ int main(int argc, char** argv)
 void runTest(int argc, char** argv)
 {    
     int SIGNAL_SIZE = 128;
+    int NUM_ITERS = 10;
     if (argc >= 2) {
         SIGNAL_SIZE = atoi(argv[1]);
     }
+    if (argc >= 2) {
+        SIGNAL_SIZE = atoi(argv[1]);
+        if (argc >= 3) {
+            NUM_ITERS = atoi(argv[2]);
+        }
+    }
     
-    printf("cuFFTW 3d r2c size %d...\n", SIGNAL_SIZE);
+    printf("cuFFTW 3d r2c OpenACC size %d num iters %d...\n", SIGNAL_SIZE, NUM_ITERS);
 
     int ntot = SIGNAL_SIZE * SIGNAL_SIZE * SIGNAL_SIZE;
     int ntot2 = SIGNAL_SIZE * SIGNAL_SIZE * (SIGNAL_SIZE/2 + 1);
@@ -81,13 +88,16 @@ void runTest(int argc, char** argv)
         cudaMemcpy(d_signal, h_signal, mem_size,
                     cudaMemcpyHostToDevice);
 
-        fftwf_execute(p);
-        fftwf_execute(p2);
+        for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        
+            fftwf_execute(p);
+            fftwf_execute(p2);
 
-        #pragma acc parallel loop present(d_signal[ntot])
-        // Normalization
-        for (unsigned int i = 0; i < ntot; ++i) {
-            d_signal[i] /= ntot;
+            #pragma acc parallel loop present(d_signal[ntot])
+            // Normalization
+            for (unsigned int i = 0; i < ntot; ++i) {
+                d_signal[i] /= ntot;
+            }
         }
 
         // Copy device memory to host
