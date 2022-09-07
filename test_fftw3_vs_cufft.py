@@ -18,15 +18,15 @@ print(f'r={r}\nd_r={d_r.get()}')
 
 # apply forward FFT
 plan1.execute()
-d_F = cupy.fft.rfftn(d_r) #, norm='backward')
+d_F = cupy.fft.rfftn(d_r, norm='backward') # no normalisation
 print(f'F={F}\nd_F={d_F.get()}')
 
 # apply backward FFT
 plan2.execute()
-d_r[:] = cupy.fft.irfftn(d_F) #, norm='forward')
+d_r[:] = cupy.fft.irfftn(d_F, norm='forward') # no normalisation
 
-# remove the normalisation
-d_r *= ntot
+# # remove the normalisation
+# d_r *= ntot
 
 print(f'r={r}\nd_r={d_r.get()}')
 
